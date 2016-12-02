@@ -159,7 +159,58 @@ describe 'POST /db/prepaid/:handle/redeemers', ->
     student = yield User.findById(@student.id)
     expect(student.get('coursePrepaid')._id.equals(@prepaid._id)).toBe(true)
     done()
-  
+
+  it 'replaces a starter license with a full license', utils.wrap (done) ->
+    yield utils.loginUser(@admin)
+    oldPrepaid = yield utils.makePrepaid({
+      creator: @teacher.id
+      startDate: moment().subtract(2, 'month').toISOString()
+      endDate: moment().add(4, 'month').toISOString()
+      type: 'starter_license'
+    })
+    @student.set('coursePrepaid', _.pick(oldPrepaid.toObject(), '_id', 'startDate', 'endDate', 'type'))
+    yield @student.save()
+    yield utils.loginUser(@teacher)
+    [res, body] = yield request.postAsync {uri: @url, json: { userID: @student.id } }
+    expect(body.redeemers.length).toBe(1)
+    expect(res.statusCode).toBe(201)
+    prepaid = yield Prepaid.findById(@prepaid._id)
+    expect(prepaid.get('redeemers').length).toBe(1)
+    student = yield User.findById(@student.id)
+    expect(student.get('coursePrepaid')._id.equals(@prepaid._id)).toBe(true)
+    done()
+
+  it 'does NOT replace a full license with a starter license', utils.wrap (done) ->
+    yield utils.loginUser(@admin)
+    @prepaid.set({
+      creator: @teacher.id
+      startDate: moment().subtract(2, 'month').toISOString()
+      endDate: moment().add(4, 'month').toISOString()
+      type: 'starter_license'
+    })
+    yield @prepaid.save()
+    oldPrepaid = yield utils.makePrepaid({
+      creator: @teacher.id
+      startDate: moment().subtract(2, 'month').toISOString()
+      endDate: moment().add(10, 'month').toISOString()
+      type: 'course'
+    })
+    yield oldPrepaid.redeem(@student)
+    yield utils.loginUser(@teacher)
+
+    student = yield User.findById(@student.id)
+    expect(student.get('coursePrepaid')._id.equals(oldPrepaid._id)).toBe(true)
+    expect(student.get('coursePrepaid')._id.toString()).toBe(oldPrepaid._id.toString())
+
+    [res, body] = yield request.postAsync {uri: @url, json: { userID: @student.id } }
+    expect(body.redeemers.length).toBe(0)
+    expect(res.statusCode).toBe(200)
+    student = yield User.findById(@student.id)
+    expect(student.get('coursePrepaid')._id.equals(oldPrepaid._id)).toBe(true)
+    expect(student.get('coursePrepaid')._id.toString()).toBe(oldPrepaid._id.toString())
+    expect((yield Prepaid.findById(oldPrepaid._id)).get('redeemers').length).toBe(1)
+    done()
+
   it 'adds includedCourseIDs to the user when redeeming', utils.wrap (done) ->
     yield utils.loginUser(@admin)
     @prepaid.set({
@@ -175,6 +226,66 @@ describe 'POST /db/prepaid/:handle/redeemers', ->
     expect(student.get('coursePrepaid')?.includedCourseIDs).toEqual(['course_1', 'course_2'])
     expect(student.get('coursePrepaid')?.type).toEqual('starter_license')
     done()
+
+  describe '.canReplace', ->
+    beforeEach utils.wrap (done) ->
+      yield utils.clearModels([Prepaid])
+      yield utils.loginUser(@admin)
+      @starter = yield utils.makePrepaid({
+        creator: @teacher.id
+        startDate: moment().subtract(2, 'month').toISOString()
+        endDate: moment().add(4, 'month').toISOString()
+        type: 'starter_license'
+      })
+      @course = yield utils.makePrepaid({
+        creator: @teacher.id
+        startDate: moment().subtract(2, 'month').toISOString()
+        endDate: moment().subtract(10, 'month').toISOString()
+        type: 'course'
+      })
+      @courseExpired = yield utils.makePrepaid({
+        creator: @teacher.id
+        startDate: moment().subtract(16, 'month').toISOString()
+        endDate: moment().subtract(4, 'month').toISOString()
+        type: 'course'
+      })
+      done()
+
+    describe 'when the user has a starter license,', ->
+      describe 'and we are assigning a full license', ->
+        it 'returns true', ->
+          expect(@course.canReplace(@starter)).toBe(true)
+
+      describe 'and we are assigning a starter license', ->
+        it 'returns false', ->
+          expect(@starter.canReplace(@starter)).toBe(false)
+
+    describe 'when the user has a full license,', ->
+      describe 'that is NOT expired,', ->
+        describe 'and we are assigning a full license', ->
+          it 'returns false', ->
+            expect(@course.canReplace(@course)).toBe(false)
+            expect(@course.canReplace(@course.toObject())).toBe(false)
+            expect(@course.canReplace(@course.get('type'))).toBe(false)
+
+        describe 'and we are assigning a starter license', ->
+          it 'returns false', ->
+            expect(@starter.canReplace(@course)).toBe(false)
+
+      # TODO: Implement expiration checking
+      # describe 'that is expired,', ->
+      #   describe 'and we are assigning a full license', ->
+      #     it 'returns true', ->
+      #       expect(@course.canReplace(@courseExpired)).toBe(true)
+      #
+      #   describe 'and we are assigning a starter license', ->
+      #     it 'returns true', ->
+      #       expect(@starter.canReplace(@courseExpired)).toBe(true)
+
+    describe 'when the user has no license', ->
+      it 'returns true', ->
+        expect(@course.canReplace(undefined)).toBe(true)
+        expect(@starter.canReplace(undefined)).toBe(true)
 
 describe 'GET /db/prepaid?creator=:id', ->
   beforeEach utils.wrap (done) ->

@@ -35,6 +35,13 @@ PrepaidSchema.statics.generateNewCodeAsync = co.wrap (done) ->
     break if not prepaid
   return code
 
+PrepaidSchema.methods.canReplace = (otherPrepaid) ->
+  return true if !otherPrepaid
+  otherType = otherPrepaid.type or otherPrepaid.get?('type') or otherPrepaid
+  if otherType is 'starter_license' and @get('type') is 'course'
+    return true
+  return false
+
 PrepaidSchema.pre('save', (next) ->
   @set('exhausted', @get('maxRedeemers') <= _.size(@get('redeemers')))
   if not @get('code')
