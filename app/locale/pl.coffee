@@ -27,8 +27,7 @@ module.exports = nativeDescription: "polski", englishDescription: "Polish", tran
 #    wanted_to_do: " Coding is something I've always wanted to do, and I never thought I would be able to learn it in school."
 #    why_games: "Why is learning through games important?"
 #    games_reward: "Games reward the productive struggle."
-#    encourage: "Gaming is a medium that encourages interaction, discovery, and trial-and-error. A good game challenges the player to master skills over time, which is the same critical process students go through as they learn."
-#    excel: "Games excel at rewarding"
+#    encourage: "Gaming is a uewarding"
 #    struggle: "productive struggle"
 #    kind_of_struggle: "the kind of struggle that results in learning that’s engaging and"
 #    motivating: "motivating"
@@ -662,7 +661,7 @@ module.exports = nativeDescription: "polski", englishDescription: "Polish", tran
     stripe_description: "Miesięczna subskrypcja"
     stripe_description_year_sale: "Roczna subskrypcja (zniżka ${{discount}})"
     subscription_required_to_play: "Do zagraniaw ten poziom wymagana jest subskrypcja."
-    unlock_help_videos: "Subscribe to unlock all video tutorials."
+    unlock_help_videos: "Subskrybuj aby odblokować wszystkie samouczki wideo."
 #    personal_sub: "Personal Subscription" # Accounts Subscription View below
 #    loading_info: "Loading subscription information..."
 #    managed_by: "Managed by"
